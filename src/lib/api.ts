@@ -1,18 +1,18 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE!;
-
-export function setJwt(t: string) {
-  if (typeof window !== "undefined") localStorage.setItem("jwt", t);
+// src/lib/api.ts
+export async function createContact(data: {
+  name: string; email?: string; phone?: string; notes?: string;
+}) {
+  const res = await fetch('/api/contacts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`Create failed: ${res.status}`);
+  return res.json();
 }
-export function getJwt() {
-  return typeof window !== "undefined" ? localStorage.getItem("jwt") : null;
-}
 
-export async function api(path: string, init: RequestInit = {}) {
-  const headers = new Headers(init.headers || {});
-  headers.set("Content-Type", "application/json");
-  const tok = getJwt();
-  if (tok) headers.set("Authorization", `Bearer ${tok}`);
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+export async function listContacts() {
+  const res = await fetch('/api/contacts');
+  if (!res.ok) throw new Error(`List failed: ${res.status}`);
   return res.json();
 }
