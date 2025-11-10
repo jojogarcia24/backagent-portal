@@ -1,2 +1,10 @@
 [build]
-  functions = "netlify/functions"
+  command = "npm run build"
+  publish = ".next"
+
+[functions]
+  directory = "api_clean/netlify/functions"
+  node_bundler = "esbuild"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
