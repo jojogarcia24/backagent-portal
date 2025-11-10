@@ -20,22 +20,24 @@ export default function LoginPage() {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ email }),
-          credentials: 'include', // <-- ensure Set-Cookie is honored
+          credentials: 'include',
         });
-        if (!res.ok) throw new Error(`Auth failed: ${res.status}`);
+        const text = await res.text().catch(()=>'');
+        if (!res.ok) throw new Error(`Auth failed ${res.status}: ${text}`);
         r.replace('/transact');
         return;
       }
 
       // token-mode (dev fallback)
       const res = await fetch(`${API}/auth-issue`, { method: 'POST' });
-      if (!res.ok) throw new Error(`Auth failed: ${res.status}`);
-      const data = await res.json();
+      const text = await res.text().catch(()=>'');
+      if (!res.ok) throw new Error(`Auth failed ${res.status}: ${text}`);
+      const data = JSON.parse(text || '{}');
       localStorage.setItem('token', data.token || 'dev-token');
       r.replace('/transact');
-    } catch (err) {
-      console.error(err);
-      alert('Sign-in failed');
+    } catch (err:any) {
+      console.error('LOGIN_ERROR:', err?.message || err);
+      alert(err?.message || 'Sign-in failed');
     } finally {
       setLoading(false);
     }
