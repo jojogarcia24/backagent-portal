@@ -68,6 +68,19 @@ export default function ContactsPage() {
 
   // dev-only token input for POST/PATCH/DELETE
   const [token, setToken] = useState<string>('');
+  const tokenSet = token.trim().length > 10;
+
+  // load/save token persistently
+  useEffect(() => {
+    const saved = localStorage.getItem('ba_token') || '';
+    if (saved) setToken(saved);
+  }, []);
+  function updateToken(val: string) {
+    const t = val.trim();
+    setToken(t);
+    localStorage.setItem('ba_token', t);
+  }
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Partial<Contact>>({});
 
@@ -96,7 +109,7 @@ export default function ContactsPage() {
     const notes = String(form.get('notes') || '').trim();
     setCreating(true); setErr(null);
     try {
-      await createContact(token || null, { name, email: email || undefined, phone: phone || undefined, notes: notes || undefined });
+      await createContact(tokenSet ? token : null, { name, email: email || undefined, phone: phone || undefined, notes: notes || undefined });
       (document.getElementById('create-form') as HTMLFormElement)?.reset();
       await refresh();
     } catch (e: any) { setErr(e?.message || 'Create failed'); }
@@ -104,7 +117,7 @@ export default function ContactsPage() {
   }
 
   async function onSaveEdit() {
-    if (!editingId || !token) { setErr('Need a Bearer token to save'); return; }
+    if (!editingId || !tokenSet) { setErr('Need a Bearer token to save'); return; }
     try {
       await patchContact(token, editingId, editDraft);
       setEditingId(null); setEditDraft({});
@@ -112,7 +125,7 @@ export default function ContactsPage() {
     } catch (e: any) { setErr(e?.message || 'Save failed'); }
   }
   async function onDelete(id: string) {
-    if (!token) { setErr('Need a Bearer token to delete'); return; }
+    if (!tokenSet) { setErr('Need a Bearer token to delete'); return; }
     try { await deleteContact(token, id); await refresh(); }
     catch (e: any) { setErr(e?.message || 'Delete failed'); }
   }
@@ -125,8 +138,11 @@ export default function ContactsPage() {
       <div className="grid md:grid-cols-2 gap-3">
         <input className="border rounded-lg p-2 text-black" placeholder="Search name, email, phone, notes…" value={q}
           onChange={(e) => { setPage(1); setQ(e.target.value); }} />
-        <input className="border rounded-lg p-2 text-black" placeholder="Bearer token (dev, for POST/PATCH/DELETE)"
-          value={token} onChange={(e) => setToken(e.target.value)} />
+        <div className="flex items-center gap-2">
+          <input className="border rounded-lg p-2 text-black flex-1" placeholder="Bearer token (dev, for POST/PATCH/DELETE)"
+            value={token} onChange={(e) => updateToken(e.target.value)} />
+          <span className={`text-xs ${tokenSet ? 'text-green-400' : 'text-red-400'}`}>{tokenSet ? 'token set' : 'no token'}</span>
+        </div>
       </div>
 
       {/* Create form */}
