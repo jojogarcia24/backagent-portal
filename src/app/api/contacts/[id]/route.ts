@@ -7,17 +7,19 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // GET /api/contacts/:id
-export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
-  const contact = await prisma.contact.findUnique({ where: { id: params.id } });
+export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const contact = await prisma.contact.findUnique({ where: { id } });
   if (!contact) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   return NextResponse.json(contact, { status: 200 });
 }
 
 // PATCH /api/contacts/:id
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
+  const { id } = await params;
   const payload = await req.json();
   const parsed = ContactUpdate.safeParse(payload);
   if (!parsed.success) {
@@ -25,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   try {
-    const updated = await prisma.contact.update({ where: { id: params.id }, data: parsed.data });
+    const updated = await prisma.contact.update({ where: { id }, data: parsed.data });
     return NextResponse.json(updated, { status: 200 });
   } catch {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
@@ -33,12 +35,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // DELETE /api/contacts/:id
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth(req);
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
+  const { id } = await params;
   try {
-    await prisma.contact.delete({ where: { id: params.id } });
+    await prisma.contact.delete({ where: { id } });
     return NextResponse.json({ ok: true }, { status: 204 });
   } catch {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
