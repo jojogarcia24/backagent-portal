@@ -1,64 +1,48 @@
 'use client';
-
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-
-const API = process.env.NEXT_PUBLIC_API_BASE ?? '/api';
-const MODE = process.env.NEXT_PUBLIC_AUTH_MODE ?? 'token';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const r = useRouter();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    try {
-      if (MODE === 'cookie') {
-        const res = await fetch(`${API}/auth/callback`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ email }),
-          credentials: 'include',
-        });
-        const text = await res.text().catch(()=>'');
-        if (!res.ok) throw new Error(`Auth failed ${res.status}: ${text}`);
-        r.replace('/transact');
-        return;
-      }
 
-      // token-mode (dev fallback)
-      const res = await fetch(`${API}/auth-issue`, { method: 'POST' });
-      const text = await res.text().catch(()=>'');
-      if (!res.ok) throw new Error(`Auth failed ${res.status}: ${text}`);
-      const data = JSON.parse(text || '{}');
-      localStorage.setItem('token', data.token || 'dev-token');
-      r.replace('/transact');
-    } catch (err:any) {
-      console.error('LOGIN_ERROR:', err?.message || err);
-      alert(err?.message || 'Sign-in failed');
-    } finally {
-      setLoading(false);
+    // Build URL: strip trailing slash from base and append function name
+    const base = (process.env.NEXT_PUBLIC_API_BASE || '').replace(/\/+$/, '');
+    const url = `${base}/auth-callback`; // Netlify function name is "auth-callback"
+
+    const res = await fetch(url, {
+      method: 'POST',
+      credentials: 'include', // critical for cookies
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!res.ok) {
+      alert(`Auth failed ${res.status}:`);
+      return;
     }
+
+    // Navigate client-side after cookie is set
+    window.location.href = '/transact';
   }
 
   return (
-    <main className="max-w-xl mx-auto p-6">
-      <h1 className="text-2xl font-semibold mb-4">Back Boss Portal</h1>
-      <form onSubmit={onSubmit} className="flex gap-2">
+    <main style={{ padding: 24, color: '#fff', background: '#000', minHeight: '100vh' }}>
+      <h1>Back Boss Portal</h1>
+      <form onSubmit={onSubmit}>
         <input
-          className="flex-1 border rounded px-3 py-2 text-black"
-          placeholder="you@company.com"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={e => setEmail(e.target.value)}
+          placeholder="jojo@mail.com"
+          style={{ padding: 8, width: 320 }}
         />
-        <button type="submit" disabled={loading} className="border rounded px-3 py-2">
-          {loading ? '...' : 'Sign in'}
+        <button type="submit" style={{ marginLeft: 12, padding: '8px 12px' }}>
+          Sign in
         </button>
       </form>
-      <p className="mt-4 text-sm opacity-70">
-        Mode: <code>{MODE}</code> | API: <code>{API}</code>
+      <p style={{ marginTop: 12, opacity: 0.8 }}>
+        Mode: cookie | API: {process.env.NEXT_PUBLIC_API_BASE}
       </p>
     </main>
   );

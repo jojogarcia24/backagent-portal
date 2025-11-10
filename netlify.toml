@@ -4,7 +4,3 @@
 
 [functions]
   directory = "api_clean/netlify/functions"
-  node_bundler = "esbuild"
-
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
