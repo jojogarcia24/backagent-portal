@@ -54,11 +54,11 @@ export default function ContactsPage() {
   const [creating, setCreating] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // dev-only token input (paste the Bearer token here for POST)
+  // dev-only token input for POST/PATCH/DELETE
   const [token, setToken] = useState<string>('');
 
-  const canPrev = useMemo(() => (meta ? page > 1 : false), [meta, page]);
-  const canNext = useMemo(() => (meta ? page < meta.pages : false), [meta, page]);
+  const canPrev = useMemo(() => !!meta && page > 1, [meta, page]);
+  const canNext = useMemo(() => !!meta && page < (meta?.pages || 1), [meta, page]);
 
   async function refresh() {
     setLoading(true);
@@ -126,7 +126,7 @@ export default function ContactsPage() {
         />
       </div>
 
-      {/* Create */}
+      {/* Create form */}
       <form
         id="create-form"
         className="grid md:grid-cols-4 gap-3 items-start border rounded-xl p-4"
@@ -149,7 +149,7 @@ export default function ContactsPage() {
       </form>
 
       {/* Error */}
-      {err && <div className="text-red-400 text-sm">{err}</div>}
+      {err ? <div className="text-red-400 text-sm">{err}</div> : null}
 
       {/* Table */}
       <div className="overflow-x-auto border rounded-xl">
@@ -164,22 +164,24 @@ export default function ContactsPage() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((c) => (
-              <tr key={c.id} className="border-t border-white/10">
-                <td className="p-3">{c.name}</td>
-                <td className="p-3">{c.email || '—'}</td>
-                <td className="p-3">{c.phone || '—'}</td>
-                <td className="p-3">{c.notes || '—'}</td>
-                <td className="p-3">{new Date(c.createdAt).toLocaleString()}</td>
-              </tr>
-            ))}
-            {!loading && rows.length === 0 && (
+            {rows.map((c) => {
+              return (
+                <tr key={c.id} className="border-t border-white/10">
+                  <td className="p-3">{c.name}</td>
+                  <td className="p-3">{c.email || '—'}</td>
+                  <td className="p-3">{c.phone || '—'}</td>
+                  <td className="p-3">{c.notes || '—'}</td>
+                  <td className="p-3">{new Date(c.createdAt).toLocaleString()}</td>
+                </tr>
+              );
+            })}
+            {!loading && rows.length === 0 ? (
               <tr>
                 <td colSpan={5} className="p-6 text-center text-gray-400">
                   No contacts yet.
                 </td>
               </tr>
-            ))}
+            ) : null}
           </tbody>
         </table>
       </div>
