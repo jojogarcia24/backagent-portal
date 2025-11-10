@@ -20,13 +20,14 @@ export default function LoginPage() {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ email }),
+          credentials: 'include', // <-- ensure Set-Cookie is honored
         });
         if (!res.ok) throw new Error(`Auth failed: ${res.status}`);
         r.replace('/transact');
         return;
       }
 
-      // token fallback (dev)
+      // token-mode (dev fallback)
       const res = await fetch(`${API}/auth-issue`, { method: 'POST' });
       if (!res.ok) throw new Error(`Auth failed: ${res.status}`);
       const data = await res.json();
