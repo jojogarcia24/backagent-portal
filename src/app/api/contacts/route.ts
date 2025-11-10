@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth';
 import { ContactCreate } from '@/lib/validation';
 import { withCors, corsPreflight } from '@/lib/cors';
+import type { Prisma } from '@prisma/client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,16 +19,18 @@ export async function GET(req: NextRequest) {
   const pageSize = Math.min(100, Math.max(1, Number(url.searchParams.get('pageSize') || 20)));
   const q = (url.searchParams.get('q') || '').trim();
 
-  const where = q
-    ? {
-        OR: [
-          { name: { contains: q, mode: 'insensitive' } },
-          { email: { contains: q, mode: 'insensitive' } },
-          { phone: { contains: q, mode: 'insensitive' } },
-          { notes: { contains: q, mode: 'insensitive' } },
-        ],
-      }
-    : {};
+  // Explicitly type to satisfy Prisma's ContactWhereInput
+  const where: Prisma.ContactWhereInput =
+    q.length > 0
+      ? {
+          OR: [
+            { name:  { contains: q, mode: 'insensitive' as const } },
+            { email: { contains: q, mode: 'insensitive' as const } },
+            { phone: { contains: q, mode: 'insensitive' as const } },
+            { notes: { contains: q, mode: 'insensitive' as const } },
+          ],
+        }
+      : {};
 
   const [total, contacts] = await Promise.all([
     prisma.contact.count({ where }),
@@ -62,7 +65,6 @@ export async function POST(req: NextRequest) {
     const contact = await prisma.contact.create({ data: parsed.data });
     return withCors(NextResponse.json(contact, { status: 201 }));
   } catch (err: any) {
-    // Prisma unique constraint -> email already exists
     if (err?.code === 'P2002' && Array.isArray(err?.meta?.target) && err.meta.target.includes('email')) {
       return withCors(NextResponse.json({ error: 'email_exists' }, { status: 409 }));
     }
