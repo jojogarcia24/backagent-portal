@@ -1,16 +1,25 @@
+// ---------- Prisma config ----------
+datasource db {
+  provider = "sqlite"                // use SQLite locally
+  url      = env("DATABASE_URL")     // e.g. DATABASE_URL="file:./dev.db"
+}
+
 generator client {
   provider = "prisma-client-js"
 }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
+// ---------- Models ----------
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // If you later want user-owned records, add relations here
+  // contacts   Contact[]
+  // deals      Deal[]
 }
 
 model Contact {
