@@ -187,26 +187,44 @@ const snapshotDotStyle: React.CSSProperties = {
   background: "#22c55e",
 };
 
+const tabBarContainerStyle: React.CSSProperties = {
+  width: "100%",
+  marginTop: 8,
+  marginBottom: 22,
+};
+
 const tabsRowStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
+  justifyContent: "space-between",
   gap: 8,
-  marginTop: 8,
-  marginBottom: 22,
   flexWrap: "nowrap",
-  width: "100%",
-  overflowX: "hidden",
 };
 
 const tabStyleBase: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  gap: 8,
-  padding: "8px 12px",
+  justifyContent: "space-between",
+  gap: 6,
+  padding: "8px 10px",
   borderRadius: 999,
-  fontSize: 14,
+  fontSize: 13,
   cursor: "default",
-  flexShrink: 0,
+  flex: 1,
+  minWidth: 0,
+};
+
+const tabLeftStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  minWidth: 0,
+};
+
+const tabLabelStyle: React.CSSProperties = {
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 };
 
 const tabCountPillStyle: React.CSSProperties = {
@@ -217,7 +235,7 @@ const tabCountPillStyle: React.CSSProperties = {
 };
 
 const tabIconStyle: React.CSSProperties = {
-  fontSize: 16,
+  fontSize: 15,
 };
 
 const sectionRowStyle: React.CSSProperties = {
@@ -408,11 +426,48 @@ const cancelButtonStyle: React.CSSProperties = {
 
 const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
   const router = useRouter();
-  const { sale, phase, party, moveConcierge, clientName } = router.query;
+  const { sale, lease, phase, party, moveConcierge, clientName, category } =
+    router.query;
 
-  const isSale = sale !== "false";
-  const normalizedPhase =
-    typeof phase === "string" ? phase.toLowerCase() : "start";
+  // --- sale / lease normalization ---
+  const saleStr = typeof sale === "string" ? sale.toLowerCase() : "";
+  const leaseStr = typeof lease === "string" ? lease.toLowerCase() : "";
+
+  const isLease =
+    leaseStr === "true" ||
+    leaseStr === "lease" ||
+    saleStr === "false" ||
+    saleStr === "lease";
+
+  const isSale = !isLease;
+
+  // --- category normalization ---
+  const categoryLabel =
+    typeof category === "string" && category.trim().length > 0
+      ? category
+      : "Residential";
+
+  // --- phase normalization ---
+  const rawPhase =
+    typeof phase === "string" && phase.length > 0
+      ? phase.toLowerCase()
+      : "start";
+
+  let normalizedPhase = "start";
+  if (rawPhase.includes("show")) normalizedPhase = "showing";
+  else if (rawPhase.includes("contract")) normalizedPhase = "contract";
+  else if (
+    rawPhase.includes("pre") &&
+    (rawPhase.includes("move") || rawPhase.includes("clos"))
+  ) {
+    normalizedPhase = "pre-closing";
+  } else if (
+    rawPhase.includes("post") &&
+    (rawPhase.includes("move") || rawPhase.includes("clos"))
+  ) {
+    normalizedPhase = "post-closing";
+  }
+
   const normalizedParty =
     typeof party === "string" ? party.toLowerCase() : "buyer";
 
@@ -421,6 +476,10 @@ const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
       ? "Seller"
       : normalizedParty === "buyer"
       ? "Buyer"
+      : normalizedParty === "landlord"
+      ? "Landlord"
+      : normalizedParty === "tenant"
+      ? "Tenant"
       : "Client";
 
   const partyBadgeText = partyLabel.toUpperCase();
@@ -456,7 +515,7 @@ const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
       : "Test For Nova";
 
   const commissionCap = 12000;
-  const commissionUsed = 4800; // placeholder; will be dynamic later
+  const commissionUsed = 4800;
   const commissionPercent = Math.min(
     100,
     Math.round((commissionUsed / commissionCap) * 100)
@@ -467,19 +526,28 @@ const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
     background:
       normalizedParty === "seller"
         ? "rgba(251,113,133,0.22)"
+        : normalizedParty === "landlord"
+        ? "rgba(129,140,248,0.18)"
         : "rgba(59,130,246,0.22)",
-    color: normalizedParty === "seller" ? "#b91c1c" : "#1d4ed8",
+    color:
+      normalizedParty === "seller"
+        ? "#b91c1c"
+        : normalizedParty === "landlord"
+        ? "#4338ca"
+        : "#1d4ed8",
     border:
       normalizedParty === "seller"
         ? "1px solid rgba(248,113,113,0.85)"
+        : normalizedParty === "landlord"
+        ? "1px solid rgba(129,140,248,0.9)"
         : "1px solid rgba(59,130,246,0.85)",
   };
 
   const tabs = [
     { label: "Summary", count: 1, active: true, icon: "📝" },
     { label: "People", count: 2, icon: "👥" },
-    { label: "Details", count: 4, icon: "📄" },
-    { label: "Documents", count: 3, icon: "📁" },
+    { label: "Details", count: 4, icon: "📋" },
+    { label: "Documents", count: 3, icon: "📄" },
     { label: "Checklist", count: 5, icon: "✅" },
     { label: "Expenses", count: 0, icon: "💵" },
     { label: "History", count: 1, icon: "🕒" },
@@ -491,9 +559,9 @@ const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
         <div style={headerTextWrapperStyle}>
           <h1 style={titleStyle}>Transaction summary</h1>
           <p style={subtitleStyle}>
-            Your new {saleLabel.toLowerCase()} transaction is live inside Back Boss. Review the
-            summary, confirm people & details, then work through your checklist to stay
-            fully compliant.
+            Your new {saleLabel.toLowerCase()} transaction is live inside Back
+            Boss. Review the summary, confirm people &amp; details, then work
+            through your checklist to stay fully compliant.
           </p>
         </div>
 
@@ -509,8 +577,8 @@ const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
           <div style={successBannerStyle}>
             <div style={successIconStyle}>✓</div>
             <span>
-              New transaction created! Please review each highlighted tab for required
-              items to move forward.
+              New transaction created! Please review each highlighted tab for
+              required items to move forward.
             </span>
           </div>
         </div>
@@ -522,7 +590,7 @@ const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
               <div>
                 <div style={fileTitleStyle}>{displayClientName}</div>
                 <div style={fileSubTitleStyle}>
-                  {saleLabel} • Residential • Representing {partyLabel}
+                  {saleLabel} • {categoryLabel} • Representing {partyLabel}
                 </div>
               </div>
             </div>
@@ -555,30 +623,34 @@ const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
             </div>
           </div>
 
-          <div style={tabsRowStyle}>
-            {tabs.map((tab) => {
-              const active = !!tab.active;
-              const style: React.CSSProperties = {
-                ...tabStyleBase,
-                backgroundColor: active ? "#0f172a" : "transparent",
-                color: active ? "#f9fafb" : "#4b5563",
-                border: active
-                  ? "1px solid rgba(15,23,42,0.9)"
-                  : "1px solid rgba(209,213,219,0.9)",
-              };
-              const pillStyle: React.CSSProperties = {
-                ...tabCountPillStyle,
-                backgroundColor: active ? "#111827" : "#e5e7eb",
-                color: active ? "#e5e7eb" : "#4b5563",
-              };
-              return (
-                <div key={tab.label} style={style}>
-                  <span style={tabIconStyle}>{tab.icon}</span>
-                  <span>{tab.label}</span>
-                  <span style={pillStyle}>{tab.count}</span>
-                </div>
-              );
-            })}
+          <div style={tabBarContainerStyle}>
+            <div style={tabsRowStyle}>
+              {tabs.map((tab) => {
+                const active = !!tab.active;
+                const style: React.CSSProperties = {
+                  ...tabStyleBase,
+                  backgroundColor: active ? "#0f172a" : "transparent",
+                  color: active ? "#f9fafb" : "#4b5563",
+                  border: active
+                    ? "1px solid rgba(15,23,42,0.9)"
+                    : "1px solid rgba(209,213,219,0.9)",
+                };
+                const pillStyle: React.CSSProperties = {
+                  ...tabCountPillStyle,
+                  backgroundColor: active ? "#111827" : "#e5e7eb",
+                  color: active ? "#e5e7eb" : "#4b5563",
+                };
+                return (
+                  <div key={tab.label} style={style}>
+                    <div style={tabLeftStyle}>
+                      <span style={tabIconStyle}>{tab.icon}</span>
+                      <span style={tabLabelStyle}>{tab.label}</span>
+                    </div>
+                    <span style={pillStyle}>{tab.count}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div style={sectionRowStyle}>
@@ -587,9 +659,9 @@ const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
               <div style={sectionBodyStyle}>
                 This {saleLabel.toLowerCase()} file is currently in the{" "}
                 <strong>{phaseLabel}</strong> phase, with you representing the{" "}
-                <strong>{partyLabel.toLowerCase()}</strong>. Use the tabs above to confirm
-                the people involved, verify key details, upload documents, and complete your
-                compliance checklist.
+                <strong>{partyLabel.toLowerCase()}</strong>. Use the tabs above
+                to confirm the people involved, verify key details, upload
+                documents, and complete your compliance checklist.
               </div>
 
               <div style={metadataListStyle}>
@@ -606,6 +678,10 @@ const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
                   <div style={metaItemValueStyle}>{saleLabel}</div>
                 </div>
                 <div>
+                  <div style={metaItemLabelStyle}>Category</div>
+                  <div style={metaItemValueStyle}>{categoryLabel}</div>
+                </div>
+                <div>
                   <div style={metaItemLabelStyle}>Move Concierge</div>
                   <div style={metaItemValueStyle}>{moveConciergeText}</div>
                 </div>
@@ -615,8 +691,9 @@ const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
             <div style={rightSectionStyle}>
               <div style={sectionTitleStyle}>At-a-glance details</div>
               <div style={sectionBodyStyle}>
-                Use this snapshot when you&apos;re on the phone, in the field, or checking
-                status at a glance. For full editing, jump into the Details and People tabs.
+                Use this snapshot when you&apos;re on the phone, in the field,
+                or checking status at a glance. For full editing, jump into the
+                Details and People tabs.
               </div>
 
               <div style={{ ...metadataListStyle, marginTop: 14 }}>
@@ -643,8 +720,8 @@ const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
           <div style={timelineWrapperStyle}>
             <div style={sectionTitleStyle}>Timeline</div>
             <div style={{ ...sectionBodyStyle, fontSize: 13 }}>
-              Back Boss tracks each stage so you know exactly what&apos;s next. Your
-              current step is highlighted below.
+              Back Boss tracks each stage so you know exactly what&apos;s next.
+              Your current step is highlighted below.
             </div>
 
             <div style={timelineRowOuterStyle}>
@@ -700,26 +777,29 @@ const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
             <div style={bottomCardStyle}>
               <div style={bottomCardTitleStyle}>Next steps</div>
               <div style={bottomCardBodyStyle}>
-                Based on your current phase, here&apos;s what should happen next:
+                Based on your current phase, here&apos;s what should happen
+                next:
               </div>
               <ul style={bulletListStyle}>
                 <li style={bulletItemStyle}>
                   Double-check your People tab for all parties and contact info.
                 </li>
                 <li style={bulletItemStyle}>
-                  Upload any missing documents so compliance isn&apos;t chasing you later.
+                  Upload any missing documents so compliance isn&apos;t chasing
+                  you later.
                 </li>
                 <li style={bulletItemStyle}>
-                  Work through your checklist line by line until everything is green.
+                  Work through your checklist line by line until everything is
+                  green.
                 </li>
               </ul>
             </div>
 
             <div style={bottomCardStyle}>
-              <div style={bottomCardTitleStyle}>Commission & cap</div>
+              <div style={bottomCardTitleStyle}>Commission &amp; cap</div>
               <div style={bottomCardBodyStyle}>
-                Back Boss tracks your progress to the office cap in real time so you always
-                know how close you are to 100% checks.
+                Back Boss tracks your progress to the office cap in real time so
+                you always know how close you are to 100% checks.
               </div>
               <div style={smallMetaRowStyle}>
                 <span>Cap used</span>
@@ -745,13 +825,19 @@ const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
             <div style={bottomCardStyle}>
               <div style={bottomCardTitleStyle}>Integrations</div>
               <div style={bottomCardBodyStyle}>
-                This file will soon sync with your favorite tools so nothing falls through
-                the cracks.
+                This file will soon sync with your favorite tools so nothing
+                falls through the cracks.
               </div>
               <ul style={bulletListStyle}>
-                <li style={bulletItemStyle}>ClickSend text alerts – coming soon</li>
-                <li style={bulletItemStyle}>Airtable compliance matrix – coming soon</li>
-                <li style={bulletItemStyle}>Nova AI task insights – coming soon</li>
+                <li style={bulletItemStyle}>
+                  ClickSend text alerts – coming soon
+                </li>
+                <li style={bulletItemStyle}>
+                  Airtable compliance matrix – coming soon
+                </li>
+                <li style={bulletItemStyle}>
+                  Nova AI task insights – coming soon
+                </li>
               </ul>
             </div>
           </div>

@@ -5,7 +5,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import AppShell from "@/components/layout/AppShell";
 
-type PartyProps = {
+type PhaseProps = {
   userEmail: string | null;
 };
 
@@ -36,60 +36,38 @@ const greenCheckIconStyle: React.CSSProperties = {
   fontWeight: 700,
 };
 
-const optionCardStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  padding: "16px 18px",
+const phaseCardStyle: React.CSSProperties = {
+  padding: "14px 18px",
   borderRadius: 18,
   background: "#ffffff",
   border: "1px solid rgba(209,213,219,0.9)",
-  boxShadow: "0 10px 32px rgba(15,23,42,0.08)",
-  marginTop: 12,
-};
-
-const optionTextBlockStyle: React.CSSProperties = {
+  boxShadow: "0 10px 26px rgba(15,23,42,0.08)",
+  marginTop: 10,
   display: "flex",
-  flexDirection: "column",
-  gap: 4,
-};
-
-const optionTitleStyle: React.CSSProperties = {
-  fontSize: 16,
-  fontWeight: 600,
-  color: "#111827",
-};
-
-const optionDescriptionStyle: React.CSSProperties = {
-  fontSize: 13,
-  color: "#6b7280",
+  justifyContent: "space-between",
+  alignItems: "center",
 };
 
 const selectButtonStyle: React.CSSProperties = {
-  padding: "10px 22px",
+  padding: "8px 18px",
   borderRadius: 999,
   border: "none",
   background: "#276bff",
   color: "#ffffff",
-  fontSize: 14,
+  fontSize: 13,
   fontWeight: 600,
   cursor: "pointer",
-  boxShadow: "0 14px 30px rgba(37,99,235,0.35)",
-  whiteSpace: "nowrap",
+  boxShadow: "0 12px 26px rgba(37,99,235,0.35)",
 };
 
-const ResidentialPartyPage: React.FC<PartyProps> = ({ userEmail }) => {
+const ResidentialPhasePage: React.FC<PhaseProps> = ({ userEmail }) => {
   const router = useRouter();
-  const { category, sale, lease, phase } = router.query;
+  const { category, sale, lease } = router.query;
 
   const categoryLabel =
     typeof category === "string" && category.trim().length > 0
       ? category
       : "Residential";
-
-  const isApartment =
-    typeof categoryLabel === "string" &&
-    categoryLabel.toLowerCase() === "apartment";
 
   const isLease =
     typeof lease === "string"
@@ -98,10 +76,7 @@ const ResidentialPartyPage: React.FC<PartyProps> = ({ userEmail }) => {
 
   const typeLabel = isLease ? "Lease" : "Sale";
 
-  const currentPhase =
-    typeof phase === "string" && phase.trim().length > 0 ? phase : null;
-
-  const setBaseParams = () => {
+  const goNext = (phaseKey: string) => {
     const params = new URLSearchParams();
     if (isLease) {
       params.set("lease", "true");
@@ -110,27 +85,9 @@ const ResidentialPartyPage: React.FC<PartyProps> = ({ userEmail }) => {
       params.set("sale", "true");
       params.set("lease", "false");
     }
-    if (currentPhase) params.set("phase", currentPhase);
+    params.set("phase", phaseKey);
     params.set("category", categoryLabel);
-    return params;
-  };
-
-  const goSellerOrLandlord = () => {
-    const params = setBaseParams();
-    // For Apartments we always treat it as Tenant-only, so this option
-    // will never be shown. This function is kept for other categories.
-    params.set("party", isLease ? "landlord" : "seller");
-    router.push(`/transact/add/residential-confirm?${params.toString()}`);
-  };
-
-  const goBuyerOrTenant = () => {
-    const params = setBaseParams();
-    // For Apartments (always tenant) and all lease files, this is Tenant.
-    // For sale files, this is Buyer.
-    params.set("party", isLease ? "tenant" : "buyer");
-    router.push(
-      `/transact/add/residential-move-concierge?${params.toString()}`
-    );
+    router.push(`/transact/add/residential-party?${params.toString()}`);
   };
 
   const handleChangeType = () => {
@@ -144,19 +101,6 @@ const ResidentialPartyPage: React.FC<PartyProps> = ({ userEmail }) => {
     }
     params.set("category", categoryLabel);
     router.push(`/transact/add/residential-type?${params.toString()}`);
-  };
-
-  const handleChangePhase = () => {
-    const params = new URLSearchParams();
-    if (isLease) {
-      params.set("lease", "true");
-      params.set("sale", "false");
-    } else {
-      params.set("sale", "true");
-      params.set("lease", "false");
-    }
-    params.set("category", categoryLabel);
-    router.push(`/transact/add/residential-phase?${params.toString()}`);
   };
 
   return (
@@ -192,13 +136,12 @@ const ResidentialPartyPage: React.FC<PartyProps> = ({ userEmail }) => {
             maxWidth: 720,
           }}
         >
-          Tell Back Boss who you represent so we can tune checklists, documents,
-          and commission rules for this {typeLabel.toLowerCase()} file.
+          Next, tell Back Boss where you are in the {typeLabel.toLowerCase()} so
+          we can highlight the right next steps.
         </p>
       </div>
 
       <div style={pageCardStyle}>
-        {/* Checkmark row */}
         <div style={{ marginBottom: 16 }}>
           <div style={greenRowStyle}>
             <div style={greenCheckIconStyle}>✓</div>
@@ -222,24 +165,8 @@ const ResidentialPartyPage: React.FC<PartyProps> = ({ userEmail }) => {
               </span>
             </div>
           </div>
-          {currentPhase && (
-            <div style={greenRowStyle}>
-              <div style={greenCheckIconStyle}>✓</div>
-              <div>
-                You selected the{" "}
-                <strong>&apos;{currentPhase}&apos;</strong> phase.{" "}
-                <span
-                  style={{ color: "#2563eb", cursor: "pointer", marginLeft: 4 }}
-                  onClick={handleChangePhase}
-                >
-                  Change
-                </span>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Question + options */}
         <h2
           style={{
             fontSize: 20,
@@ -248,61 +175,81 @@ const ResidentialPartyPage: React.FC<PartyProps> = ({ userEmail }) => {
             margin: "0 0 10px 0",
           }}
         >
-          Which party do you represent?
+          Where would you like to start the transaction?
         </h2>
 
         <div style={{ marginTop: 10 }}>
-          {/* For Apartments, we ALWAYS treat it as Tenant, so we hide the
-              Seller/Landlord option completely. */}
-          {!isApartment && (
-            <div style={optionCardStyle}>
-              <div style={optionTextBlockStyle}>
-                <div style={optionTitleStyle}>
-                  {isLease ? "Landlord" : "Seller"}
+          {[
+            {
+              key: "start",
+              label: "Start",
+              description:
+                "You are in the early stages of representing your client. (Recommended)",
+            },
+            {
+              key: "showing",
+              label: "Showing",
+              description:
+                "Client is actively searching for, or marketing, a property.",
+            },
+            {
+              key: "contract",
+              label: "Contract",
+              description:
+                "The contract is written; you may still be negotiating details.",
+            },
+            {
+              key: "pre-closing",
+              label: isLease ? "Pre-Move-In" : "Pre-Closing",
+              description: isLease
+                ? "All documents are signed. You are ready to submit for funding / move-in."
+                : "All documents have been signed. You are ready to submit for funding.",
+            },
+            {
+              key: "post-closing",
+              label: isLease ? "Post-Move-In" : "Post-Closing",
+              description: isLease
+                ? "Tenant has moved in. You need to submit your paperwork and request commission."
+                : "Transaction has closed. Submit paperwork and request commission.",
+            },
+          ].map((phase) => (
+            <div key={phase.key} style={phaseCardStyle}>
+              <div>
+                <div
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: "#111827",
+                  }}
+                >
+                  {phase.label}
                 </div>
-                <div style={optionDescriptionStyle}>
-                  {isLease
-                    ? "The property owner or management company."
-                    : "The current property owner you are representing."}
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: "#6b7280",
+                    marginTop: 4,
+                  }}
+                >
+                  {phase.description}
                 </div>
               </div>
               <button
                 type="button"
                 style={selectButtonStyle}
-                onClick={goSellerOrLandlord}
+                onClick={() => goNext(phase.key)}
               >
                 Select
               </button>
             </div>
-          )}
-
-          <div style={optionCardStyle}>
-            <div style={optionTextBlockStyle}>
-              <div style={optionTitleStyle}>
-                {/* Apartment path is always Tenant */}
-                {isApartment ? "Tenant" : isLease ? "Tenant" : "Buyer"}
-              </div>
-              <div style={optionDescriptionStyle}>
-                {isLease || isApartment
-                  ? "The lease or rent payer."
-                  : "The buyer or buyer-side client you are representing."}
-              </div>
-            </div>
-            <button
-              type="button"
-              style={selectButtonStyle}
-              onClick={goBuyerOrTenant}
-            >
-              Select
-            </button>
-          </div>
+          ))}
         </div>
       </div>
     </AppShell>
   );
 };
 
-export const getServerSideProps: GetServerSideProps<PartyProps> = async (
+export const getServerSideProps: GetServerSideProps<PhaseProps> = async (
   context
 ) => {
   const session = await getServerSession(context.req, context.res, authOptions);
@@ -323,4 +270,4 @@ export const getServerSideProps: GetServerSideProps<PartyProps> = async (
   };
 };
 
-export default ResidentialPartyPage;
+export default ResidentialPhasePage;

@@ -1,5 +1,6 @@
 import React from "react";
 import type { GetServerSideProps } from "next";
+import { useRouter } from "next/router";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import AppShell from "@/components/layout/AppShell";
@@ -80,6 +81,8 @@ const sideCardStyle: React.CSSProperties = {
 };
 
 function AddTransactionPage({ userEmail }: AddProps) {
+  const router = useRouter();
+
   const nameFromEmail =
     userEmail?.split("@")[0]?.replace(/\./g, " ") || "JoJo Garcia";
 
@@ -93,32 +96,45 @@ function AddTransactionPage({ userEmail }: AddProps) {
     {
       key: "residential",
       label: "Residential",
-      description:
-        "As defined by your brokerage and REALTOR® association.",
-      href: "/transact/add/residential-type",
+      description: "As defined by your brokerage and REALTOR® association.",
     },
     {
       key: "apartment",
       label: "Apartment",
       description:
         "Managed building. Used for standard property-management controlled leasing.",
-      href: "#",
     },
     {
       key: "commercial",
       label: "Commercial",
-      description:
-        "As defined by your brokerage and REALTOR® association.",
-      href: "#",
+      description: "As defined by your brokerage and REALTOR® association.",
     },
     {
       key: "referral",
       label: "Referral Only",
       description:
-        "You referred a buyer or seller to another agent, for a fee.",
-      href: "#",
+        "You referred a buyer, seller, landlord or tenant to another agent, for a fee.",
     },
   ];
+
+  const goToCategory = (categoryLabel: string) => {
+    const params = new URLSearchParams();
+    params.set("category", categoryLabel);
+    router.push(`/transact/add/residential-type?${params.toString()}`);
+  };
+
+  const handleSelect = (key: string) => {
+    if (key === "residential") {
+      goToCategory("Residential");
+    } else if (key === "apartment") {
+      goToCategory("Apartment");
+    } else if (key === "commercial") {
+      goToCategory("Commercial");
+    } else if (key === "referral") {
+      // 🔁 NEW: Referral Only uses same flow as a normal transaction
+      goToCategory("Referral Only");
+    }
+  };
 
   return (
     <AppShell userEmail={userEmail} activeTab="Transact">
@@ -153,9 +169,9 @@ function AddTransactionPage({ userEmail }: AddProps) {
             maxWidth: 780,
           }}
         >
-          Choose what kind of deal you&apos;re creating. Later we&apos;ll connect
-          this flow directly to your transaction software and prefill as much
-          as possible.
+          Choose what kind of deal you&apos;re creating. Later we&apos;ll
+          connect this flow directly to your transaction software and prefill as
+          much as possible.
         </p>
       </div>
 
@@ -171,10 +187,12 @@ function AddTransactionPage({ userEmail }: AddProps) {
         >
           {/* LEFT – Category list */}
           <div>
-            <h2 style={sectionTitleStyle}>What category of transaction are you creating?</h2>
+            <h2 style={sectionTitleStyle}>
+              What category of transaction are you creating?
+            </h2>
             <p style={subtitleStyle}>
-              Pick the closest match. Back Boss will apply the right checklists,
-              docs, and commission rules for you.
+              Pick the closest match. Back Boss will apply the right
+              checklists, docs, and commission rules for you.
             </p>
 
             {options.map((opt, index) => {
@@ -192,17 +210,13 @@ function AddTransactionPage({ userEmail }: AddProps) {
                     </div>
                   </div>
 
-                  <a
-                    href={opt.href}
-                    style={{ textDecoration: "none" }}
-                    onClick={(e) => {
-                      if (opt.href === "#") e.preventDefault();
-                    }}
+                  <button
+                    type="button"
+                    style={selectButtonStyle}
+                    onClick={() => handleSelect(opt.key)}
                   >
-                    <button type="button" style={selectButtonStyle}>
-                      Select
-                    </button>
-                  </a>
+                    Select
+                  </button>
                 </div>
               );
             })}
@@ -251,9 +265,9 @@ function AddTransactionPage({ userEmail }: AddProps) {
                 color: "#6b7280",
               }}
             >
-              In a later phase, you&apos;ll be able to change the agent,
-              team, or office for this file and Back Boss will auto-adjust
-              splits and permissions.
+              In a later phase, you&apos;ll be able to change the agent, team,
+              or office for this file and Back Boss will auto-adjust splits and
+              permissions.
             </div>
           </aside>
         </div>

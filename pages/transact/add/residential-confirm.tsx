@@ -1,20 +1,12 @@
 import React, { useState } from "react";
 import type { GetServerSideProps } from "next";
+import { useRouter } from "next/router";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import AppShell from "@/components/layout/AppShell";
 
 type ConfirmProps = {
   userEmail: string | null;
-  party: "seller" | "buyer" | null;
-  phase:
-    | "start"
-    | "showing"
-    | "contract"
-    | "pre-closing"
-    | "post-closing"
-    | null;
-  saleOrLease: "sale" | "lease" | null;
 };
 
 const pageCardStyle: React.CSSProperties = {
@@ -36,6 +28,15 @@ const pillStyle: React.CSSProperties = {
   textTransform: "uppercase",
 };
 
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "7px 10px",
+  borderRadius: 10,
+  border: "1px solid #d1d5db",
+  fontSize: 13,
+  outline: "none",
+};
+
 const MOCK_CONTACTS = [
   {
     id: "1",
@@ -53,32 +54,52 @@ const MOCK_CONTACTS = [
   },
 ];
 
-function ResidentialConfirm({
-  userEmail,
-  party,
-  phase,
-  saleOrLease,
-}: ConfirmProps) {
-  const name = userEmail?.split("@")[0]?.replace(/\./g, " ") || "Agent";
+function ResidentialConfirm({ userEmail }: ConfirmProps) {
+  const router = useRouter();
+  const { sale, lease, phase, party, category, moveConcierge } = router.query;
 
-  const partyLabel = party === "buyer" ? "Buyer" : "Seller";
-  const saleLeaseLabel =
-    saleOrLease === "lease"
-      ? "Lease"
-      : saleOrLease === "sale"
-      ? "Sale"
-      : "Sale / Lease";
+  const isLease =
+    typeof lease === "string"
+      ? lease.toLowerCase() === "true"
+      : sale === "false";
+
+  const saleOrLease: "sale" | "lease" = isLease ? "lease" : "sale";
+
+  const categoryLabel =
+    typeof category === "string" && category.trim().length > 0
+      ? category.trim()
+      : "Residential";
+
+  const partyLabel =
+    typeof party === "string"
+      ? party.toLowerCase() === "buyer"
+        ? isLease
+          ? "Tenant"
+          : "Buyer"
+        : party.toLowerCase() === "tenant"
+        ? "Tenant"
+        : party.toLowerCase() === "landlord"
+        ? "Landlord"
+        : "Seller"
+      : isLease
+      ? "Tenant"
+      : "Buyer";
 
   const phaseLabelMap: Record<string, string> = {
-    "start": "Start",
-    "showing": "Showing",
-    "contract": "Contract",
-    "pre-closing": "Pre-Closing",
-    "post-closing": "Post-Closing",
+    start: "Start",
+    showing: "Showing",
+    contract: "Contract",
+    "pre-closing": isLease ? "Pre-Move-In" : "Pre-Closing",
+    "post-closing": isLease ? "Post-Move-In" : "Post-Closing",
   };
+
+  const phaseKeyRaw =
+    typeof phase === "string" ? phase.toLowerCase() : "contract";
   const phaseKey =
-    phase && phaseLabelMap[phase] ? phase : ("contract" as const);
+    phaseLabelMap[phaseKeyRaw] ? phaseKeyRaw : ("contract" as const);
   const phaseLabel = phaseLabelMap[phaseKey];
+
+  const name = userEmail?.split("@")[0]?.replace(/\./g, " ") || "Agent";
 
   const [selectedContactId, setSelectedContactId] = useState<string | null>(
     MOCK_CONTACTS[0]?.id ?? null
@@ -92,14 +113,35 @@ function ResidentialConfirm({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
+  const buildSummaryUrl = () => {
+    const params = new URLSearchParams();
+    if (saleOrLease === "lease") {
+      params.set("lease", "true");
+      params.set("sale", "false");
+    } else {
+      params.set("sale", "true");
+      params.set("lease", "false");
+    }
+    params.set("phase", phaseKey);
+    params.set("party", (party as string) ?? "seller");
+
+    if (categoryLabel && categoryLabel.length > 0) {
+      params.set("category", categoryLabel);
+    }
+
+    if (typeof moveConcierge === "string" && moveConcierge.trim().length > 0) {
+      params.set("moveConcierge", moveConcierge.trim());
+    }
+
+    return `/transact/summary?${params.toString()}`;
+  };
+
   const handleCreateTransaction = () => {
-    // If a contact is selected, we're good.
     if (selectedContactId) {
-      window.location.href = `/transact/summary?sale=${saleOrLease ?? "sale"}&phase=${phaseKey}&party=${party ?? "seller"}`;
+      window.location.href = buildSummaryUrl();
       return;
     }
 
-    // Otherwise, require all key fields in the quick-add form.
     if (!firstName.trim() || !lastName.trim() || !email.trim() || !phone.trim()) {
       alert(
         "Add at least one client with first name, last name, email, and phone before creating the transaction."
@@ -114,8 +156,7 @@ function ResidentialConfirm({
       return;
     }
 
-    // For now we don't persist the contact; this just simulates that one exists.
-    window.location.href = `/transact/summary?sale=${saleOrLease ?? "sale"}&phase=${phaseKey}&party=${party ?? "seller"}`;
+    window.location.href = buildSummaryUrl();
   };
 
   return (
@@ -169,17 +210,20 @@ function ResidentialConfirm({
         >
           <div style={{ marginBottom: 4 }}>
             <span style={{ color: "#22c55e", marginRight: 6 }}>✓</span>
-            You selected the <strong>&apos;Residential&apos;</strong> category.{" "}
+            You selected the{" "}
+            <strong>&apos;{categoryLabel}&apos;</strong> category.{" "}
             <a href="/transact/add" style={{ color: "#2563eb" }}>
               Change
             </a>
           </div>
           <div style={{ marginBottom: 4 }}>
             <span style={{ color: "#22c55e", marginRight: 6 }}>✓</span>
-            You selected the <strong>&apos;{saleLeaseLabel}&apos;</strong>{" "}
-            type.{" "}
+            You selected the{" "}
+            <strong>&apos;{isLease ? "Lease" : "Sale"}&apos;</strong> type.{" "}
             <a
-              href="/transact/add/residential-type"
+              href={`/transact/add/residential-type${
+                categoryLabel ? `?category=${encodeURIComponent(categoryLabel)}` : ""
+              }`}
               style={{ color: "#2563eb" }}
             >
               Change
@@ -189,7 +233,13 @@ function ResidentialConfirm({
             <span style={{ color: "#22c55e", marginRight: 6 }}>✓</span>
             You selected the <strong>&apos;{phaseLabel}&apos;</strong> phase.{" "}
             <a
-              href="/transact/add/residential-phase"
+              href={`/transact/add/residential-phase${
+                categoryLabel
+                  ? `?category=${encodeURIComponent(categoryLabel)}&${
+                      isLease ? "lease=true&sale=false" : "sale=true&lease=false"
+                    }`
+                  : ""
+              }`}
               style={{ color: "#2563eb" }}
             >
               Change
@@ -199,7 +249,13 @@ function ResidentialConfirm({
             <span style={{ color: "#22c55e", marginRight: 6 }}>✓</span>
             You represent the <strong>&apos;{partyLabel}&apos;</strong>.{" "}
             <a
-              href="/transact/add/residential-party"
+              href={`/transact/add/residential-party${
+                categoryLabel
+                  ? `?category=${encodeURIComponent(categoryLabel)}&${
+                      isLease ? "lease=true&sale=false" : "sale=true&lease=false"
+                    }&phase=${phaseKey}`
+                  : ""
+              }`}
               style={{ color: "#2563eb" }}
             >
               Change
@@ -430,7 +486,6 @@ function ResidentialConfirm({
               transaction to jump into the Summary view.
             </p>
 
-            {/* Quick add form – appears under the card, not beside it */}
             {showQuickAdd && (
               <div
                 style={{
@@ -519,45 +574,21 @@ function ResidentialConfirm({
                     display: "grid",
                     gridTemplateColumns: "1fr 1fr",
                     gap: 10,
-                    marginBottom: 10,
                   }}
                 >
                   <input
-                    placeholder="Email Address"
+                    placeholder="Email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     style={inputStyle}
                   />
                   <input
-                    placeholder="Phone Number"
+                    placeholder="Phone"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     style={inputStyle}
                   />
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    alert(
-                      "In a later phase this will create a shared contact record for your office."
-                    )
-                  }
-                  style={{
-                    marginTop: 4,
-                    width: "100%",
-                    borderRadius: 999,
-                    border: "none",
-                    padding: "9px 16px",
-                    background: "#111827",
-                    color: "#f9fafb",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  Add New Contact (Preview)
-                </button>
               </div>
             )}
 
@@ -565,18 +596,17 @@ function ResidentialConfirm({
               type="button"
               onClick={handleCreateTransaction}
               style={{
-                marginTop: showQuickAdd ? 0 : 10,
+                marginTop: 8,
                 width: "100%",
+                padding: "12px 18px",
                 borderRadius: 999,
                 border: "none",
-                padding: "12px 18px",
-                background:
-                  "linear-gradient(135deg,#2563eb,#1d4ed8,#3b82f6)",
-                color: "#f9fafb",
-                fontSize: 15,
+                background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                color: "#ffffff",
+                fontSize: 14,
                 fontWeight: 700,
                 cursor: "pointer",
-                boxShadow: "0 16px 40px rgba(37,99,235,0.55)",
+                boxShadow: "0 16px 40px rgba(37,99,235,0.45)",
               }}
             >
               Create New Transaction
@@ -587,15 +617,6 @@ function ResidentialConfirm({
     </AppShell>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  padding: "8px 14px",
-  fontSize: 13,
-  outline: "none",
-};
 
 export default ResidentialConfirm;
 
@@ -617,31 +638,9 @@ export const getServerSideProps: GetServerSideProps<ConfirmProps> = async (
     };
   }
 
-  const { party, phase, sale } = context.query;
-
-  const partyValue = typeof party === "string" ? party.toLowerCase() : null;
-  const phaseValue = typeof phase === "string" ? phase.toLowerCase() : null;
-  const saleValue = typeof sale === "string" ? sale.toLowerCase() : null;
-
   return {
     props: {
       userEmail: session.user?.email ?? null,
-      party:
-        partyValue === "buyer" || partyValue === "seller"
-          ? (partyValue as ConfirmProps["party"])
-          : "seller",
-      phase:
-        phaseValue === "start" ||
-        phaseValue === "showing" ||
-        phaseValue === "contract" ||
-        phaseValue === "pre-closing" ||
-        phaseValue === "post-closing"
-          ? (phaseValue as ConfirmProps["phase"])
-          : "contract",
-      saleOrLease:
-        saleValue === "sale" || saleValue === "lease"
-          ? (saleValue as ConfirmProps["saleOrLease"])
-          : "sale",
     },
   };
 };
