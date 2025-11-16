@@ -9,6 +9,14 @@ type SummaryProps = {
   userEmail: string | null;
 };
 
+type TabDef = {
+  label: string;
+  count: number;
+  icon: string;
+  active?: boolean;
+  path?: string;
+};
+
 const pageWrapperStyle: React.CSSProperties = {
   maxWidth: 1200,
   margin: "0 auto",
@@ -543,15 +551,29 @@ const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
         : "1px solid rgba(59,130,246,0.85)",
   };
 
-  const tabs = [
-    { label: "Summary", count: 1, active: true, icon: "📝" },
-    { label: "People", count: 2, icon: "👥" },
-    { label: "Details", count: 4, icon: "📋" },
-    { label: "Documents", count: 3, icon: "📄" },
-    { label: "Checklist", count: 5, icon: "✅" },
-    { label: "Expenses", count: 0, icon: "💵" },
-    { label: "History", count: 1, icon: "🕒" },
+  const tabs: TabDef[] = [
+    {
+      label: "Summary",
+      count: 1,
+      active: true,
+      icon: "📝",
+      path: "/transact/summary",
+    },
+    { label: "People", count: 2, icon: "👥", path: "/transact/people" },
+    { label: "Details", count: 4, icon: "📋", path: "/transact/details" },
+    { label: "Documents", count: 3, icon: "📄", path: "/transact/documents" },
+    { label: "Checklist", count: 5, icon: "✅", path: "/transact/checklist" },
+    { label: "Expenses", count: 0, icon: "💵", path: "/transact/expenses" },
+    { label: "History", count: 1, icon: "🕒", path: "/transact/history" },
   ];
+
+  const handleTabClick = (tab: TabDef) => {
+    if (!tab.path) return;
+    router.push({
+      pathname: tab.path,
+      query: router.query,
+    });
+  };
 
   return (
     <AppShell userEmail={userEmail}>
@@ -627,6 +649,7 @@ const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
             <div style={tabsRowStyle}>
               {tabs.map((tab) => {
                 const active = !!tab.active;
+                const hasPath = !!tab.path;
                 const style: React.CSSProperties = {
                   ...tabStyleBase,
                   backgroundColor: active ? "#0f172a" : "transparent",
@@ -634,6 +657,7 @@ const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
                   border: active
                     ? "1px solid rgba(15,23,42,0.9)"
                     : "1px solid rgba(209,213,219,0.9)",
+                  cursor: hasPath ? "pointer" : "default",
                 };
                 const pillStyle: React.CSSProperties = {
                   ...tabCountPillStyle,
@@ -641,7 +665,11 @@ const SummaryPage: React.FC<SummaryProps> = ({ userEmail }) => {
                   color: active ? "#e5e7eb" : "#4b5563",
                 };
                 return (
-                  <div key={tab.label} style={style}>
+                  <div
+                    key={tab.label}
+                    style={style}
+                    onClick={() => handleTabClick(tab)}
+                  >
                     <div style={tabLeftStyle}>
                       <span style={tabIconStyle}>{tab.icon}</span>
                       <span style={tabLabelStyle}>{tab.label}</span>
