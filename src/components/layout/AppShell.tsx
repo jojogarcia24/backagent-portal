@@ -64,6 +64,7 @@ export default function AppShell({
 
   const [isQuickMenuOpen, setIsQuickMenuOpen] = useState(false);
   const [isQuickLinksOpen, setIsQuickLinksOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [nowText, setNowText] = useState("");
 
   useEffect(() => {
@@ -94,8 +95,16 @@ export default function AppShell({
     { label: "Connect", href: "/connect" },
     { label: "Transact", href: "/transact" },
     { label: "Promote", href: "/promote" },
-    { label: "Back Boss CRM", href: "https://login.backbossai.com/", external: true },
-    { label: "Lending", href: "https://www.elitelivingrealty.com/lending", external: true },
+    {
+      label: "Back Boss CRM",
+      href: "https://login.backbossai.com/",
+      external: true,
+    },
+    {
+      label: "Lending",
+      href: "https://www.elitelivingrealty.com/lending",
+      external: true,
+    },
     { label: "Learn", href: "/learn" },
   ];
 
@@ -123,7 +132,7 @@ export default function AppShell({
       {/* Top nav */}
       <header
         style={{
-          background: "#000000", // jet black
+          background: "#000000",
           color: "#f9fafb",
           padding: "10px 32px",
           display: "flex",
@@ -134,11 +143,14 @@ export default function AppShell({
           zIndex: 30,
         }}
       >
-        {/* Left: logo + hamburger */}
+        {/* Left: logo + quick menu hamburger */}
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button
             type="button"
-            onClick={() => setIsQuickMenuOpen((prev) => !prev)}
+            onClick={() => {
+              setIsQuickMenuOpen((prev) => !prev);
+              setIsProfileMenuOpen(false);
+            }}
             style={{
               border: "none",
               background: "transparent",
@@ -211,14 +223,14 @@ export default function AppShell({
           })}
         </nav>
 
-        {/* Right: user info */}
+        {/* Right: user info + profile dropdown trigger */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 16,
+            gap: 14,
             fontSize: 20,
-            marginLeft: 40, // push it a bit further right
+            marginLeft: 40,
           }}
         >
           <div style={{ textAlign: "right", lineHeight: 1.3 }}>
@@ -227,45 +239,79 @@ export default function AppShell({
               Elite Living Realty
             </div>
           </div>
+
           <div
             style={{
-              width: 32,
-              height: 32,
-              borderRadius: "999px",
-              overflow: "hidden",
-              border: "2px solid #e5e7eb",
-              flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
             }}
           >
-            <img
-              src="https://secure.elitelivingconnect.com/file/d0494920325e5252450cfaf321aebfe0/4938db92-1629-4b6e-8779-83035f3d90dc/theone.png"
-              alt="Agent avatar"
+            <div
               style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
+                width: 32,
+                height: 32,
+                borderRadius: "999px",
+                overflow: "hidden",
+                border: "2px solid #e5e7eb",
+                flexShrink: 0,
               }}
-            />
+            >
+              <img
+                src="https://secure.elitelivingconnect.com/file/d0494920325e5252450cfaf321aebfe0/4938db92-1629-4b6e-8779-83035f3d90dc/theone.png"
+                alt="Agent avatar"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+              />
+            </div>
+
+            {/* Profile menu trigger – circular menu icon */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsProfileMenuOpen((prev) => !prev);
+                setIsQuickMenuOpen(false);
+              }}
+              style={{
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                padding: 0,
+              }}
+              aria-label="Open profile menu"
+            >
+              <div
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: "999px",
+                  background:
+                    "radial-gradient(circle at 30% 0%, #38bdf8, #1d4ed8)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 0 0 1px rgba(148,163,184,0.7)",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 16,
+                    lineHeight: 1,
+                    color: "#f9fafb",
+                  }}
+                >
+                  ⋮
+                </span>
+              </div>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => signOut()}
-            style={{
-              borderRadius: 999,
-              border: "1px solid #4b5563",
-              background: "transparent",
-              color: "#e5e7eb",
-              fontSize: 16,
-              padding: "4px 16px",
-              cursor: "pointer",
-            }}
-          >
-            Log out
-          </button>
         </div>
       </header>
 
-      {/* Quick Menu dropdown */}
+      {/* Quick Menu dropdown (left) */}
       {isQuickMenuOpen && (
         <div
           style={{
@@ -361,6 +407,157 @@ export default function AppShell({
               }}
             >
               🔗 Quick Links
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Profile dropdown (right) */}
+      {isProfileMenuOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 72,
+            right: 32,
+            width: 280,
+            borderRadius: 20,
+            background: "#000000",
+            boxShadow: "0 18px 50px rgba(0,0,0,0.95)",
+            padding: 14,
+            color: "#f9fafb",
+            zIndex: 45,
+          }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              marginBottom: 10,
+              paddingBottom: 8,
+              borderBottom: "1px solid rgba(55,65,81,0.7)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: "#f97316",
+                marginBottom: 6,
+              }}
+            >
+              View Profile
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                color: "#9ca3af",
+              }}
+            >
+              {userEmail ?? "Signed in"}
+            </div>
+          </div>
+
+          {/* Top links */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              marginBottom: 10,
+            }}
+          >
+            {["Account", "Settings", "Reports"].map((label) => (
+              <button
+                key={label}
+                type="button"
+                style={{
+                  textAlign: "left",
+                  borderRadius: 6,
+                  padding: "6px 2px",
+                  border: "none",
+                  background: "transparent",
+                  fontSize: 13,
+                  color: "#93c5fd",
+                  cursor: "pointer",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div
+            style={{
+              borderTop: "1px solid rgba(55,65,81,0.7)",
+              margin: "4px 0 8px",
+            }}
+          />
+
+          {/* Bottom links */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+          >
+            <a
+              href="/control-panel"
+              onClick={() => setIsProfileMenuOpen(false)}
+              style={{
+                textDecoration: "none",
+                borderRadius: 6,
+                padding: "6px 2px",
+                fontSize: 13,
+                color: "#bfdbfe",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                cursor: "pointer",
+              }}
+            >
+              <span>Control Panel</span>
+              <span style={{ fontSize: 12 }}>🛡</span>
+            </a>
+
+            <button
+              type="button"
+              style={{
+                textAlign: "left",
+                borderRadius: 6,
+                padding: "6px 2px",
+                border: "none",
+                background: "transparent",
+                fontSize: 13,
+                color: "#bfdbfe",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                cursor: "pointer",
+              }}
+            >
+              <span>Integrations</span>
+              <span style={{ fontSize: 12 }}>🛡</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsProfileMenuOpen(false);
+                signOut();
+              }}
+              style={{
+                textAlign: "left",
+                borderRadius: 6,
+                padding: "6px 2px",
+                border: "none",
+                background: "transparent",
+                fontSize: 13,
+                color: "#fca5a5",
+                cursor: "pointer",
+                marginTop: 4,
+              }}
+            >
+              Logout
             </button>
           </div>
         </div>
