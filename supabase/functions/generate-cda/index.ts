@@ -22,6 +22,15 @@ type AdminAgent = {
   is_admin: boolean;
 };
 
+type TitleDispatchResult = {
+  attempted: boolean;
+  sent: boolean;
+  webhook_url: string | null;
+  status_code: number | null;
+  error: string | null;
+  response: JsonValue | string | null;
+};
+
 function currency(n: unknown): string {
   const val = Number(n ?? 0);
   if (!Number.isFinite(val)) return "$0.00";
@@ -351,8 +360,109 @@ serve(async (req) => {
       warnings.push("W9 elected but no W9 file URL was provided.");
     }
 
-    const cdaStatus = warnings.length ? "generated_with_warnings" : "generated";
-    const sentAt = send_to_title ? nowIso : null;
+    const baseCdaStatus = warnings.length ? "generated_with_warnings" : "generated";
+    const titleDispatch: TitleDispatchResult = {
+      attempted: false,
+      sent: false,
+      webhook_url: null,
+      status_code: null,
+      error: null,
+      response: null,
+    };
+    let finalCdaStatus = baseCdaStatus;
+    let sentAt: string | null = null;
+
+    if (send_to_title) {
+      titleDispatch.attempted = true;
+      const { data: settings } = await supabase
+        .from("brokerage_settings")
+        .select("ghl_webhook_url")
+        .eq("brokerage_id", tx.brokerage_id)
+        .single();
+      const webhookUrl = String(settings?.ghl_webhook_url || "").trim();
+      titleDispatch.webhook_url = webhookUrl || null;
+
+      const attachmentLinks = [
+        { type: "cda_packet", url: cdaUrl },
+        { type: "funding_confirmation_internal", url: fundingConfirmationUrl },
+        { type: "disbursement_authorization", url: disbursementAuthorizationUrl },
+        ...(buyerContributionLetterUrl ? [{ type: "buyer_contribution_letter", url: buyerContributionLetterUrl }] : []),
+        ...(sellerContributionLetterUrl ? [{ type: "seller_contribution_letter", url: sellerContributionLetterUrl }] : []),
+        ...(w9Url ? [{ type: "w9", url: w9Url }] : []),
+      ];
+
+      if (!webhookUrl) {
+        titleDispatch.error = "Missing brokerage_settings.ghl_webhook_url";
+      } else {
+        const payload: Record<string, JsonValue> = {
+          event_type: "cda_generated",
+          action: "send_to_title",
+          timestamp: nowIso,
+          transaction_id: tx.id,
+          funding_request_id: fr.id,
+          ref_number: tx.ref_number,
+          property_address: tx.property_address,
+          generated_by_id: generatedById,
+          generated_by_label: generatedByLabel,
+          title_company_name: fr.title_company_name,
+          title_contact_name: fr.title_contact_name,
+          title_email: fr.title_email,
+          title_phone: fr.title_phone,
+          title_fax: fr.title_fax,
+          title_gf_number: fr.title_gf_number,
+          funding_method: fr.funding_method ?? tx.funding_method ?? "standard",
+          total_charges: Number(fr.total_charges ?? 0),
+          total_payouts: Number(fr.total_payouts ?? 0),
+          net_to_agent: Number(fr.net_to_agent ?? 0),
+          notes,
+          documents: {
+            cda_url: cdaUrl,
+            funding_confirmation_internal_url: fundingConfirmationUrl,
+            disbursement_authorization_url: disbursementAuthorizationUrl,
+            buyer_contribution_letter_url: buyerContributionLetterUrl,
+            seller_contribution_letter_url: sellerContributionLetterUrl,
+            w9_url: w9Url,
+          },
+          attachments: attachmentLinks,
+          warnings,
+        };
+
+        try {
+          const webhookRes = await fetch(webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          titleDispatch.status_code = webhookRes.status;
+
+          const raw = await webhookRes.text();
+          if (raw) {
+            try {
+              titleDispatch.response = JSON.parse(raw) as JsonValue;
+            } catch {
+              titleDispatch.response = raw;
+            }
+          }
+
+          if (webhookRes.ok) {
+            titleDispatch.sent = true;
+          } else {
+            titleDispatch.error = `Webhook returned ${webhookRes.status}`;
+          }
+        } catch (dispatchErr) {
+          titleDispatch.error = dispatchErr instanceof Error ? dispatchErr.message : "Unknown webhook error";
+        }
+      }
+
+      if (titleDispatch.sent) {
+        sentAt = nowIso;
+        finalCdaStatus = "sent_to_title";
+      } else {
+        const reason = titleDispatch.error || "Unknown dispatch failure";
+        warnings.push(`Auto-send to title failed: ${reason}`);
+        finalCdaStatus = "send_to_title_failed";
+      }
+    }
 
     const { data: cdaRecord, error: cdaErr } = await supabase
       .from("cdas")
@@ -369,16 +479,18 @@ serve(async (req) => {
         w9_url: w9Url,
         source_funding_request_id: fr.id,
         generated_at: nowIso,
-        sent_to_title: send_to_title,
+        sent_to_title: titleDispatch.sent,
         sent_at: sentAt,
-        status: cdaStatus,
+        status: finalCdaStatus,
         generated_by: generatedById,
         metadata: {
           warnings,
           notes,
           internal_invocation: internalInvocation,
+          title_dispatch: titleDispatch,
           generated_from_function: "generate-cda",
         },
+        error_message: titleDispatch.error,
       })
       .select("id")
       .single();
@@ -387,10 +499,10 @@ serve(async (req) => {
     const { error: txUpdateErr } = await supabase
       .from("transactions")
       .update({
-        cda_status: send_to_title ? "sent_to_title" : cdaStatus,
+        cda_status: finalCdaStatus,
         cda_generated_at: nowIso,
         cda_generated_by: generatedById,
-        cda_error: null,
+        cda_error: titleDispatch.error,
         cda_sent_to_title_at: sentAt,
         cda_url: cdaUrl,
         funding_confirmation_url: fundingConfirmationUrl,
@@ -409,7 +521,7 @@ serve(async (req) => {
       .update({
         cda_generated_at: nowIso,
         cda_id: cdaRecord.id,
-        cda_error: null,
+        cda_error: titleDispatch.error,
         funding_confirmation_internal_url: fundingConfirmationUrl,
         disbursement_authorization_url: disbursementAuthorizationUrl,
         buyer_contribution_letter_url: buyerContributionLetterUrl,
@@ -433,8 +545,28 @@ serve(async (req) => {
         funding_request_id: fr.id,
         send_to_title,
         warnings,
+        title_dispatch: titleDispatch,
       },
     });
+
+    if (send_to_title) {
+      await supabase.from("audit_log").insert({
+        brokerage_id: tx.brokerage_id,
+        transaction_id: tx.id,
+        agent_id: auditAgentId,
+        event_type: titleDispatch.sent ? "cda_sent_to_title" : "cda_send_to_title_failed",
+        triggered_by: "broker",
+        page: "Admin",
+        description: titleDispatch.sent
+          ? "CDA packet sent to title company via webhook."
+          : `CDA send-to-title failed: ${titleDispatch.error || "Unknown dispatch failure"}`,
+        metadata: {
+          cda_id: cdaRecord.id,
+          funding_request_id: fr.id,
+          title_dispatch: titleDispatch,
+        },
+      });
+    }
 
     return new Response(
       JSON.stringify({
@@ -442,7 +574,7 @@ serve(async (req) => {
         cda_id: cdaRecord.id,
         transaction_id: tx.id,
         funding_request_id: fr.id,
-        status: send_to_title ? "sent_to_title" : cdaStatus,
+        status: finalCdaStatus,
         documents: {
           cda_url: cdaUrl,
           funding_confirmation_internal_url: fundingConfirmationUrl,
@@ -452,6 +584,7 @@ serve(async (req) => {
           w9_url: w9Url,
         },
         warnings,
+        title_dispatch: titleDispatch,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
